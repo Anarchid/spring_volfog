@@ -68,7 +68,8 @@ vec4 mapClouds( in vec3 p)
 {
     float f;
     
-    float factor = inPrism(p);
+    float factor = 1-smoothstep(fogHeight-20.,fogHeight,p.y);
+    factor = mix(0,factor,inPrism(p));
     //factor *= 1-pow(p.y/fogHeight,2);
     
     p+=offset;
@@ -171,15 +172,15 @@ vec4 raymarchClouds( in vec3 start, in vec3 end)
 		float t = i/20.0;
 		vec3 pos = mix(sectPos, end, t);
 		vec4 col = mapClouds(pos);
-		//vec4 col = mapDebug(pos);
-		//vec4 col = mapTexture(pos);
+
 		
-		vec3 lightPos = pos+5*sundir;
+		vec3 lightPos = 5*sundir+pos;
 		float dif =  clamp((col.w - mapClouds(lightPos).w), 0.0, 1.0 );
 
         vec3 lin = vec3(0.76,0.68,0.88)*1.35 + vec3(1, 0, 0)*dif;
 		col.xyz *= lin;
-
+		
+		
 		col.a *= 0.6;
 		col.rgb *= col.a;
 
