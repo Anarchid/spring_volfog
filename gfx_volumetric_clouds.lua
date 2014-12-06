@@ -19,7 +19,7 @@ local enabled = true;
 
 local GroundFogDefs = {
 	color    = {0.26, 0.30, 0.41},
-	height   = "80%", --// allows either absolute sizes or in percent of map's MaxHeight
+	height   = "50%", --// allows either absolute sizes or in percent of map's MaxHeight
 	fogatten = 0.003,
 };
 
@@ -37,6 +37,7 @@ local fogColor     = GroundFogDefs.color
 local fogAtten     = GroundFogDefs.fogatten
 local fr,fg,fb     = unpack(fogColor)
 local sunDir = {0,0,0}
+local sunCol = {1,0,0}
 
 assert(type(fogHeight) == "number")
 assert(type(fr) == "number")
@@ -140,6 +141,7 @@ local fogTexture
 local uniformEyePos
 local uniformViewPrjInv
 local uniformOffset
+local uniformSunColor
 
 local offsetX = 0;
 local offsetY = 0;
@@ -346,7 +348,9 @@ function widget:Initialize()
 				});
 				
 				local sunx, suny, sunz = gl.GetSun('pos');
-				sundir = normalize({sunx, suny, sunz});
+				local sunr, sung, sunb = gl.GetSun('specular');
+				sunDir = normalize({sunx, suny, sunz});
+				sunCol = {sunr, sung, sunb};
 				
 				spEcho(glGetShaderLog())
 				if (not depthShader) then	
@@ -357,6 +361,7 @@ function widget:Initialize()
 					uniformViewPrjInv   = glGetUniformLocation(depthShader, 'viewProjectionInv')
 					uniformOffset       = glGetUniformLocation(depthShader, 'offset')
 					uniformSundir       = glGetUniformLocation(depthShader, 'sundir')
+					uniformSunColor     = glGetUniformLocation(depthShader, 'suncolor')
 				end
 			end
 		else
@@ -417,7 +422,8 @@ local function DrawFogNew()
 	glUniform(uniformEyePos, cpx, cpy, cpz)
 	glUniform(uniformOffset, offsetX, offsetY, offsetZ);
 	
-	glUniform(uniformSundir, sundir[1], sundir[2], sundir[3]);
+	glUniform(uniformSundir, sunDir[1], sunDir[2], sunDir[3]);
+	glUniform(uniformSunColor, sunCol[1], sunCol[2], sunCol[3]);
 
 	glUniformMatrix(uniformViewPrjInv,  "viewprojectioninverse")
 
@@ -438,7 +444,9 @@ function widget:GameFrame()
 	offsetZ = offsetZ-dz*0.5;
 	
 	local sunx, suny, sunz = gl.GetSun('pos');
-	sundir = normalize({sunx, suny, sunz});
+	local sunr, sung, sunb = gl.GetSun('diffuse');
+	sunDir = normalize({sunx, suny, sunz});
+	sunCol = {sunr, sung, sunb};
 end
 
 function widget:DrawScreenEffects()

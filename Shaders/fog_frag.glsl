@@ -17,6 +17,7 @@ uniform vec2 unoise;
 uniform mat4 viewProjectionInv;
 uniform vec3 offset;
 uniform vec3 sundir;
+uniform vec3 suncolor;
 
 
 float hash( float n )
@@ -27,16 +28,15 @@ float hash( float n )
 
 float noise( in vec3 x )
 {
-	#if 1
     vec3 p = floor(x);
     vec3 f = fract(x);
 
+	#if 1
+	f = f*f*(3.0-2.0*f);
     float a = texture2D( tex1, x.xy/500.0 + (p.z+0.0)*120.7123 ).x;
     float b = texture2D( tex1, x.xy/500.0 + (p.z+1.0)*120.7123 ).x;
 	return mix( a, b, f.z );
 	#else
-	vec3 p = floor(x);
-    vec3 f = fract(x);
 
     f = f*f*(3.0-2.0*f);
     float n = p.x + p.y*57.0 + 113.0*p.z;
@@ -174,10 +174,10 @@ vec4 raymarchClouds( in vec3 start, in vec3 end)
 		vec4 col = mapClouds(pos);
 
 		
-		vec3 lightPos = 5*sundir+pos;
-		float dif =  clamp((col.w - mapClouds(lightPos).w), 0.0, 1.0 );
+		vec3 lightPos = -2*sundir+pos;
+		float dif =  clamp((col.w - mapClouds(lightPos).w), 0.0, 1.0 )*3;
 
-        vec3 lin = vec3(0.76,0.68,0.88)*1.35 + vec3(1, 0, 0)*dif;
+        vec3 lin = vec3(0.76,0.68,0.88)*1.35 + suncolor*dif;
 		col.xyz *= lin;
 		
 		
@@ -209,7 +209,7 @@ void main(void)
 	vec3 rd = normalize(eyePos-worldPos);
 	float sun = clamp( dot(normalize(sundir),rd), 0.0, 1.0 );
 	vec3 col = vec3(0.6,0.71,0.75) - rd.y*0.2*vec3(1.0,0.5,1.0) + 0.15*0.5;
-	col += 0.2*vec3(1.0,.6,0.1)*pow( sun, 8.0 );
+	col += 0.2*suncolor*pow( sun, 8.0 );
 	col *= 0.95;
 	col = mix( col, res.xyz, res.w );
 	col += 0.1*vec3(1.0,0.4,0.2)*pow( sun, 3.0 );
