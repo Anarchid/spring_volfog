@@ -6,7 +6,7 @@ function widget:GetInfo()
   return {
     name      = "Volumetric Clouds",
     version   = 3,
-    desc      = "Clouds! Wohoo!",
+    desc      = "Fog/Dust clouds that scroll with wind along the map's surface. Requires GLSL, expensive even with.",
     author    = "Anarchid",
     date      = "november 2014",
     license   = "GNU GPL, v2 or later",
