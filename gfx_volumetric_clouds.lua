@@ -17,35 +17,35 @@ end
 
 local enabled = true;
 
-local GroundFogDefs = {
-	color    = {0.26, 0.30, 0.41},
+local CloudDefs = {
+	color    = {0.46, 0.32, 0.2},
 	height   = "90%", --// allows either absolute sizes or in percent of map's MaxHeight
-	fogatten = 0.003,
-	windCoeff = 0.5,
+	scale = 255,
+	windCoeff = 1.0,
 };
 
 local gnd_min, gnd_max = Spring.GetGroundExtremes()
 
-if (GroundFogDefs.height == "auto") then
-	GroundFogDefs.height = gnd_max
-elseif (GroundFogDefs.height:match("(%d+)%%")) then
-	local percent = GroundFogDefs.height:match("(%d+)%%")
-	GroundFogDefs.height = gnd_max * (percent / 100)
+if (CloudDefs.height == "auto") then
+	CloudDefs.height = gnd_max
+elseif (CloudDefs.height:match("(%d+)%%")) then
+	local percent = CloudDefs.height:match("(%d+)%%")
+	CloudDefs.height = gnd_max * (percent / 100)
 end
 
-local fogHeight    = GroundFogDefs.height
-local fogColor     = GroundFogDefs.color
-local fogAtten     = GroundFogDefs.fogatten
-local windCoeff    = GroundFogDefs.windCoeff
-local fr,fg,fb     = unpack(fogColor)
+local cloudsHeight    = CloudDefs.height
+local cloudsColor     = CloudDefs.color
+local cloudsScale     = CloudDefs.scale
+local windCoeff    = CloudDefs.windCoeff
+local fr,fg,fb     = unpack(cloudsColor)
 local sunDir = {0,0,0}
 local sunCol = {1,0,0}
 
-assert(type(fogHeight) == "number")
+assert(type(cloudsHeight) == "number")
 assert(type(fr) == "number")
 assert(type(fg) == "number")
 assert(type(fb) == "number")
-assert(type(fogAtten) == "number")
+assert(type(cloudsScale) == "number")
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -154,14 +154,14 @@ local offsetZ = 0;
 ----a simple plane, very complete, would look good with shadows, reflex and stuff.
 
 local function DrawPlaneModel()
-  local layers = (fogHeight - (gnd_min+50)) / 50
+  local layers = (cloudsHeight - (gnd_min+50)) / 50
 
-  glColor(fr,fg,fb,50*fogAtten)
+  glColor(fr,fg,fb,50*cloudsScale)
   glDepthTest(true)
   glBlending(true)
 
   glBeginEnd(GL_QUADS,function()
-    for h = gnd_min+50,fogHeight,50 do
+    for h = gnd_min+50,cloudsHeight,50 do
       local l = -mx*4
       local r = mx + mx*4
       local t = -mz*4
@@ -193,10 +193,10 @@ end
 
 local function FogFullscreen()
 	local camY = select(2, spGetCameraPosition())
-	local inFogH = fogHeight - camY
+	local inFogH = cloudsHeight - camY
 
-	if (inFogH > fogHeight * 0.1) then
-		glColor(fr,fg,fb, math.min(0.8, inFogH * fogAtten))
+	if (inFogH > cloudsHeight * 0.1) then
+		glColor(fr,fg,fb, math.min(0.8, inFogH * cloudsScale))
 		glRect(0,0,vsx,vsy)
 		glColor(1,1,1,1)
 	end
@@ -261,8 +261,7 @@ local vertSrc = [[
 
 local fragSrc = VFS.LoadFile("LuaUI/Widgets/Shaders/fog_frag.glsl"); 
 
-fragSrc = fragSrc:format(fogAtten, fogHeight, fogColor[1], fogColor[2], fogColor[3], mx, mz, gnd_min);
-
+fragSrc = fragSrc:format(cloudsScale, cloudsHeight, cloudsColor[1], cloudsColor[2], cloudsColor[3], mx, mz, gnd_min);
 
 if (post83) then
   fragSrc = '#define USE_INVERSEMATRIX\n' .. fragSrc
@@ -353,8 +352,6 @@ function widget:Initialize()
 				local sunr, sung, sunb = gl.GetSun('specular');
 				sunDir = normalize({sunx, suny, sunz});
 				sunCol = {sunr, sung, sunb};
-				
-				spEcho("Sun color: "..sunr..","..sung..","..sunb);
 				
 				spEcho(glGetShaderLog())
 				if (not depthShader) then	

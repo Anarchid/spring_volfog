@@ -1,13 +1,12 @@
-const float fogAtten  = %f;
-const float fogHeight = %f;
+const float noiseScale = float(%f);
+const float fogHeight = float(%f);
 const vec3 fogColor   = vec3(%f, %f, %f);
 const float mapX = float(%f);
 const float mapZ = float(%f);
+const float fogMinHeight = float(%f);
 const float k = 100.0;
 const vec3 up = vec3(0.0,1.0,0.0);
 const vec4 nullVector = vec4(0.0,0.0,0.0,0.0);
-const float fogMinHeight = float(%f);
-const float noiseScale = 256.0;
 
 uniform sampler2D tex0;
 uniform sampler2D tex1;
@@ -57,7 +56,6 @@ vec4 mapClouds( in vec3 p)
     
     float factor = 1.0-smoothstep(fogHeight-20.0,fogHeight,p.y);
     factor = mix(0.0,factor,inPrism(p));
-    //factor *= 1-pow(p.y/fogHeight,2);
     
     p += offset;
     p /= noiseScale;
@@ -147,13 +145,11 @@ vec4 raymarchClouds( in vec3 start, in vec3 end)
 		vec3 pos = mix(sectPos, end, t);
 		vec4 col = mapClouds(pos);
 
-		
 		vec3 lightPos = 10.0*sundir+pos;
 		float dif =  clamp((col.w - mapClouds(lightPos).w), 0.0, 1.0 )*3.0;
 
-        vec3 lin = vec3(0.76,0.68,0.88)*1.35 + suncolor*dif;
+        vec3 lin = fogColor*1.35 + suncolor*dif;
 		col.xyz *= lin;
-		
 		
 		col.a *= 0.3;
 		col.rgb *= col.a;
@@ -182,7 +178,7 @@ void main(void)
 	
 	vec3 rd = normalize(eyePos-worldPos);
 	float sun = clamp( dot(normalize(sundir),rd), 0.0, 1.0 );
-	vec3 col = vec3(0.6,0.71,0.75) - rd.y*0.2*suncolor + 0.15*0.5;
+	vec3 col = fogColor - rd.y*0.2*suncolor + 0.15*0.5;
 	col += 0.2*suncolor*pow( sun, 8.0 );
 	col *= 0.95;
 	col = mix( col, res.xyz, res.w );
