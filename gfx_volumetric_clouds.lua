@@ -15,14 +15,19 @@ function widget:GetInfo()
   }
 end
 
-local enabled = true;
+enabled = true;
 
-local CloudDefs = {
-	color    = {0.46, 0.32, 0.2},
-	height   = "90%", --// allows either absolute sizes or in percent of map's MaxHeight
-	scale = 255,
-	windCoeff = 1.0,
-};
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Config
+
+local mapcfg = VFS.Include("mapinfo.lua");
+
+if (not mapcfg)or(not mapcfg.custom)or(not mapcfg.custom.clouds) then
+	error("<Volumetric Clouds>: Can't find settings in mapinfo.lua!");
+end
+
+local CloudDefs = mapcfg.custom.clouds;
 
 local gnd_min, gnd_max = Spring.GetGroundExtremes()
 
@@ -36,8 +41,8 @@ end
 local cloudsHeight    = CloudDefs.height
 local cloudsColor     = CloudDefs.color
 local cloudsScale     = CloudDefs.scale
-local windCoeff    = CloudDefs.windCoeff
-local fr,fg,fb     = unpack(cloudsColor)
+local speed    		  = CloudDefs.speed
+local fr,fg,fb        = unpack(cloudsColor)
 local sunDir = {0,0,0}
 local sunCol = {1,0,0}
 
@@ -46,6 +51,8 @@ assert(type(fr) == "number")
 assert(type(fg) == "number")
 assert(type(fb) == "number")
 assert(type(cloudsScale) == "number")
+assert(type(speed) == "number")
+
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -178,31 +185,6 @@ local function DrawPlaneModel()
   glColor(1,1,1,1)
 end
 
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- fog rendering
-
-local function FogSlices()
-	local h = 8*(math.sin(time()/1.2)) + 30*(math.sin(time()/7.3)) - 30
-	glPushMatrix()
-		glTranslate(0,h,0)
-			glCallList(fog)
-	glPopMatrix()
-end
-
-local function FogFullscreen()
-	local camY = select(2, spGetCameraPosition())
-	local inFogH = cloudsHeight - camY
-
-	if (inFogH > cloudsHeight * 0.1) then
-		glColor(fr,fg,fb, math.min(0.8, inFogH * cloudsScale))
-		glRect(0,0,vsx,vsy)
-		glColor(1,1,1,1)
-	end
-end
-
-
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -333,6 +315,10 @@ end
 --------------------------------------------------------------------------------
 
 function widget:Initialize()
+	spEcho('Height: '..cloudsHeight);
+	spEcho('Color: '..fr..','..fg..','..fb);
+	spEcho('Scale: '..cloudsScale);
+	spEcho('Enabled: '..tostring(enabled));
 	if (enabled) then
 		if ((not forceNonGLSL) and Spring.GetMiniMapDualScreen()~='left') then --FIXME dualscreen
 			if (not glCreateShader) then
@@ -411,7 +397,6 @@ end
 
 local function DrawFogNew()
 	--//FIXME handle dualscreen correctly!
-
 	-- copy the depth buffer
 	glCopyToTexture(depthTexture, 0, 0, 0, 0, vsx, vsy) --FIXME scale down?
 
@@ -440,9 +425,9 @@ end
 
 function widget:GameFrame()
 	local dx,dy,dz = spGetWind();
-	offsetX = offsetX-dx*windCoeff;
+	offsetX = offsetX-dx*speed;
 	offsetY = offsetY-0.25-dy*0.25;
-	offsetZ = offsetZ-dz*windCoeff;
+	offsetZ = offsetZ-dz*speed;
 	
 	local sunx, suny, sunz = gl.GetSun('pos');
 	local sunr, sung, sunb = gl.GetSun('specular');

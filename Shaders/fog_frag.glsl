@@ -60,10 +60,12 @@ vec4 mapClouds( in vec3 p)
     p += offset;
     p /= noiseScale;
 
-    f  = noise( p ); p = m*p*2.02;
-    f += 0.2500*noise( p ); p = m*p*2.03;
-    f += 0.1250*noise( p ); p = m*p*2.01;
-    f += 0.0625*noise( p );
+    f  = noise( p ); 
+    p = m*p*2.02;
+    f += 0.2500*noise( p ); 
+    //p = m*p*2.03;
+    //f += 0.1250*noise( p ); p = m*p*2.01;
+    //f += 0.0625*noise( p );
     
     f = f*factor;
     
