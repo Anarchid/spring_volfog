@@ -7,7 +7,7 @@ const float k = 100.0;
 const vec3 up = vec3(0.,1.,0.);
 const vec4 nullVector = (0.,0.,0.,0.);
 const float fogMinHeight = %f;
-const float noiseScale = 200;
+const float noiseScale = 256;
 
 uniform sampler2D tex0;
 uniform sampler2D tex1;
@@ -19,39 +19,26 @@ uniform vec3 offset;
 uniform vec3 sundir;
 uniform vec3 suncolor;
 
-
 float hash( float n )
 {
     return fract(sin(n)*43758.5453123);
 }
 
-
 float noise( in vec3 x )
 {
     vec3 p = floor(x);
     vec3 f = fract(x);
-
-	#if 1
 	f = f*f*(3.0-2.0*f);
-    float a = texture2D( tex1, x.xy/500.0 + (p.z+0.0)*120.7123 ).x;
-    float b = texture2D( tex1, x.xy/500.0 + (p.z+1.0)*120.7123 ).x;
-	return mix( a, b, f.z );
-	#else
-
-    f = f*f*(3.0-2.0*f);
-    float n = p.x + p.y*57.0 + 113.0*p.z;
-    return mix(mix(mix( hash(n+  0.0), hash(n+  1.0),f.x),
-                   mix( hash(n+ 57.0), hash(n+ 58.0),f.x),f.y),
-               mix(mix( hash(n+113.0), hash(n+114.0),f.x),
-                   mix( hash(n+170.0), hash(n+171.0),f.x),f.y),f.z);
-	#endif
+	
+	vec2 uv = (p.xy+vec2(37.0,17.0)*p.z) + f.xy;
+	vec2 rg = texture2D( tex1, (uv+ 0.5)/256.0, -100.0 ).yx;
+	return mix( rg.x, rg.y, f.z );
 }
-
 
 const mat3 m = mat3( 0.00,  0.80,  0.60,
                     -0.80,  0.36, -0.48,
                     -0.60, -0.48,  0.64 );
-                    
+                
 float inPrism(in vec3 pos){
 	return 
 	float(
@@ -72,10 +59,10 @@ vec4 mapClouds( in vec3 p)
     factor = mix(0,factor,inPrism(p));
     //factor *= 1-pow(p.y/fogHeight,2);
     
-    p+=offset;
-    p.xz = p.xz / noiseScale;
-    p.y  = p.y / noiseScale;
-    f  = 0.5000*noise( p ); p = m*p*2.02;
+    p += offset;
+    p /= noiseScale;
+
+    f  = noise( p ); p = m*p*2.02;
     f += 0.2500*noise( p ); p = m*p*2.03;
     f += 0.1250*noise( p ); p = m*p*2.01;
     f += 0.0625*noise( p );
@@ -174,7 +161,7 @@ vec4 raymarchClouds( in vec3 start, in vec3 end)
 		vec4 col = mapClouds(pos);
 
 		
-		vec3 lightPos = -2*sundir+pos;
+		vec3 lightPos = 10*sundir+pos;
 		float dif =  clamp((col.w - mapClouds(lightPos).w), 0.0, 1.0 )*3;
 
         vec3 lin = vec3(0.76,0.68,0.88)*1.35 + suncolor*dif;
@@ -208,10 +195,10 @@ void main(void)
 	
 	vec3 rd = normalize(eyePos-worldPos);
 	float sun = clamp( dot(normalize(sundir),rd), 0.0, 1.0 );
-	vec3 col = vec3(0.6,0.71,0.75) - rd.y*0.2*vec3(1.0,0.5,1.0) + 0.15*0.5;
+	vec3 col = vec3(0.6,0.71,0.75) - rd.y*0.2*suncolor + 0.15*0.5;
 	col += 0.2*suncolor*pow( sun, 8.0 );
 	col *= 0.95;
 	col = mix( col, res.xyz, res.w );
-	col += 0.1*vec3(1.0,0.4,0.2)*pow( sun, 3.0 );
+	col += 0.1*suncolor*pow( sun, 3.0 );
     gl_FragColor = vec4( col, res.w );
 }

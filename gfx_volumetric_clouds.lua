@@ -19,8 +19,9 @@ local enabled = true;
 
 local GroundFogDefs = {
 	color    = {0.26, 0.30, 0.41},
-	height   = "50%", --// allows either absolute sizes or in percent of map's MaxHeight
+	height   = "90%", --// allows either absolute sizes or in percent of map's MaxHeight
 	fogatten = 0.003,
+	windCoeff = 0.5,
 };
 
 local gnd_min, gnd_max = Spring.GetGroundExtremes()
@@ -35,6 +36,7 @@ end
 local fogHeight    = GroundFogDefs.height
 local fogColor     = GroundFogDefs.color
 local fogAtten     = GroundFogDefs.fogatten
+local windCoeff    = GroundFogDefs.windCoeff
 local fr,fg,fb     = unpack(fogColor)
 local sunDir = {0,0,0}
 local sunCol = {1,0,0}
@@ -352,6 +354,8 @@ function widget:Initialize()
 				sunDir = normalize({sunx, suny, sunz});
 				sunCol = {sunr, sung, sunb};
 				
+				spEcho("Sun color: "..sunr..","..sung..","..sunb);
+				
 				spEcho(glGetShaderLog())
 				if (not depthShader) then	
 					spEcho("Bad shader, reverting to non-GLSL widget.")
@@ -439,12 +443,12 @@ end
 
 function widget:GameFrame()
 	local dx,dy,dz = spGetWind();
-	offsetX = offsetX-dx*0.5;
+	offsetX = offsetX-dx*windCoeff;
 	offsetY = offsetY-0.25-dy*0.25;
-	offsetZ = offsetZ-dz*0.5;
+	offsetZ = offsetZ-dz*windCoeff;
 	
 	local sunx, suny, sunz = gl.GetSun('pos');
-	local sunr, sung, sunb = gl.GetSun('diffuse');
+	local sunr, sung, sunb = gl.GetSun('specular');
 	sunDir = normalize({sunx, suny, sunz});
 	sunCol = {sunr, sung, sunb};
 end
