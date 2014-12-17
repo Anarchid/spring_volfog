@@ -197,12 +197,11 @@ function widget:ViewResize()
 		mag_filter = GL_NEAREST,
 	});
 	
-	fogTexture = glCreateTexture(vsx/2, vsy/2, {
-		min_filter = GL.LINEAR, 
+	fogTexture = glCreateTexture(vsx/3, vsy/3, {
+		min_filter = GL.LINEAR,
 		mag_filter = GL.LINEAR,
-		format = GL_RGB16F_ARB, 
-		wrap_s = GL.CLAMP, 
-		wrap_t = GL.CLAMP,
+		wrap_s = GL.CLAMP_TO_EDGE,
+		wrap_t = GL.CLAMP_TO_EDGE,
 		fbo = true,
 	});
 
@@ -237,53 +236,6 @@ end
 
 if (debugGfx) then
   fragSrc = '#define DEBUG_GFX\n' .. fragSrc
-end
-
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---
---  Vector Math
---
-
-local function cross(a, b)
-  return {
-    (a[2] * b[3]) - (a[3] * b[2]),
-    (a[3] * b[1]) - (a[1] * b[3]),
-    (a[1] * b[2]) - (a[2] * b[1])
-  }
-end
-
-local function add(a, b)
-  return {
-    a[1] * b[1],
-    a[2] * b[2],
-    a[3] * b[3]
-  }
-end
-
-local function dot(a, b)
-  return (a[1] * b[1]) + (a[2] * b[2]) + (a[3] * b[3])
-end
-
-
-local function normalize(a)
-  local len = math.sqrt((a[1] * a[1]) + (a[2] * a[2]) + (a[3] * a[3]))
-  if (len == 0.0) then
-    return a
-  end
-  a[1] = a[1] / len
-  a[2] = a[2] / len
-  a[3] = a[3] / len
-  return { a[1], a[2], a[3] }
-end
-
-
-local function scale(a, s)
-  a[1] = a[1] * s
-  a[2] = a[2] * s
-  a[3] = a[3] * s
-  return { a[1], a[2], a[3] }
 end
 
 
@@ -324,7 +276,7 @@ function widget:Initialize()
 				
 				local sunx, suny, sunz = gl.GetSun('pos');
 				local sunr, sung, sunb = gl.GetSun('specular');
-				sunDir = normalize({sunx, suny, sunz});
+				sunDir = {sunx, suny, sunz};
 				sunCol = {sunr, sung, sunb};
 				
 				spEcho(glGetShaderLog())
@@ -364,23 +316,13 @@ end
 local dl
 
 local function renderToTextureFunc()
-	if (not dl) then
-		dl = gl.CreateList(function()
-			-- render a full screen quad
-			gl.Clear( GL.COLOR_BUFFER_BIT,0,0,0,0);
-			glTexture(0, depthTexture)
-			glTexture(0, false)
-			glTexture(1,"LuaUI/Widgets/Images/rgbnoise.png");
-			glTexture(1, false)
+	-- render a full screen quad
+	glTexture(0, depthTexture)
+	glTexture(0, false)
+	glTexture(1,":l:LuaUI/Widgets/Images/rgbnoise.png");
+	glTexture(1, false)
 
-			gl.TexRect(-1, -1, 1, 1, 0, 0, 1, 1)
-
-			--// finished
-			glUseShader(0)
-		end)
-	end
-
-	glCallList(dl)
+	gl.TexRect(-1, -1, 1, 1, 0, 0, 1, 1)
 end
 
 local function DrawFogNew()
@@ -392,8 +334,7 @@ local function DrawFogNew()
 	glUseShader(depthShader)
 
 	-- set uniforms
-	local cpx, cpy, cpz = spGetCameraPosition()
-	glUniform(uniformEyePos, cpx, cpy, cpz)
+	glUniform(uniformEyePos, spGetCameraPosition())
 	glUniform(uniformOffset, offsetX, offsetY, offsetZ);
 	
 	glUniform(uniformSundir, sunDir[1], sunDir[2], sunDir[3]);
@@ -405,6 +346,8 @@ local function DrawFogNew()
 	-- TODO: figure out why it disappears in some places
 	-- maybe add a switch to make it high-res direct-render
 	gl.RenderToTexture(fogTexture, renderToTextureFunc);
+
+	glUseShader(0)
 end
 
 
@@ -419,20 +362,21 @@ function widget:GameFrame()
 	
 	local sunx, suny, sunz = gl.GetSun('pos');
 	local sunr, sung, sunb = gl.GetSun('specular');
-	sunDir = normalize({sunx, suny, sunz});
+	sunDir = {sunx, suny, sunz};
 	sunCol = {sunr, sung, sunb};
 end
 
 function widget:DrawScreenEffects()
-	glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	--glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 	glTexture(fogTexture);
 	gl.TexRect(0,0,vsx,vsy,0,0,1,1);
+	glTexture(false);
 end
 
 function widget:DrawWorld()
-	if (debugGfx) then glBlending(GL_SRC_ALPHA, GL_ONE) end
+	glBlending(false)
 	DrawFogNew()
-	if (debugGfx) then glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) end
+	glBlending(true)
 end
 
 --------------------------------------------------------------------------------

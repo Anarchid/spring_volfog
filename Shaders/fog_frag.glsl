@@ -1,4 +1,4 @@
-const float noiseScale = float(%f);
+const float noiseScale = 1. / float(%f);
 const float fogHeight = float(%f);
 const float fogBottom = float(%f);
 const vec3 fogColor   = vec3(%f, %f, %f);
@@ -6,175 +6,101 @@ const float mapX = float(%f);
 const float mapZ = float(%f);
 const float fadeAltitude = float(%f);
 const float opacity = float(%f);
-const float k = 100.0;
-const vec3 up = vec3(0.0,1.0,0.0);
-const vec4 nullVector = vec4(0.0,0.0,0.0,0.0);
 
 uniform sampler2D tex0;
 uniform sampler2D tex1;
 
 uniform vec3 eyePos;
-uniform vec2 unoise;
 uniform mat4 viewProjectionInv;
 uniform vec3 offset;
 uniform vec3 sundir;
 uniform vec3 suncolor;
 
-float hash( float n )
-{
-    return fract(sin(n)*43758.5453123);
-}
-
 float noise( in vec3 x )
 {
-    vec3 p = floor(x);
-    vec3 f = fract(x);
+	vec3 p = floor(x);
+	vec3 f = fract(x);
 	f = f*f*(3.0-2.0*f);
-	
-	vec2 uv = (p.xy+vec2(37.0,17.0)*p.z) + f.xy;
-	vec2 rg = texture2D( tex1, (uv+ 0.5)/256.0, -100.0 ).yx;
+	vec2 uv = (p.xy + vec2(37.0,17.0)*p.z) + f.xy;
+	vec2 rg = texture2D( tex1, (uv + 0.5)/256.0).yx;
 	return mix( rg.x, rg.y, f.z );
 }
 
 const mat3 m = mat3( 0.00,  0.80,  0.60,
                     -0.80,  0.36, -0.48,
-                    -0.60, -0.48,  0.64 );
-                
-float inPrism(in vec3 pos){
-	return 
-	float(
-		pos.y < fogHeight &&
-		pos.y > fogBottom &&
-		pos.z < mapZ-1.0 &&
-		pos.x < mapX-1.0 &&
-		pos.x > 1.0 &&
-		pos.z > 1.0
-	);
+                    -0.60, -0.48,  0.64 ) * 2.02;
+
+
+struct Ray {
+	vec3 Origin;
+	vec3 Dir;
+};
+
+struct AABB {
+	vec3 Min;
+	vec3 Max;
+};
+
+bool IntersectBox(Ray r, AABB aabb, out float t0, out float t1)
+{
+	vec3 invR = 1.0 / r.Dir;
+	vec3 tbot = invR * (aabb.Min - r.Origin);
+	vec3 ttop = invR * (aabb.Max - r.Origin);
+	vec3 tmin = min(ttop, tbot);
+	vec3 tmax = max(ttop, tbot);
+	vec2 t = max(tmin.xx, tmin.yz);
+	t0 = max(t.x, t.y);
+	t  = min(tmax.xx, tmax.yz);
+	t1 = min(t.x, t.y);
+	return t0 <= t1;
 }
+
 
 vec4 mapClouds( in vec3 p)
 {
-    float f;
-    
-    float factor = 1.0-smoothstep(fadeAltitude,fogHeight,p.y);
-    factor = mix(0.0,factor,inPrism(p));
-    
-    p += offset;
-    p /= noiseScale;
+	float factor = 1.0 - smoothstep(fadeAltitude,fogHeight,p.y);
+	p += offset;
+	p *= noiseScale;
 
-    f  = noise( p ); 
-    p = m*p*2.02;
-    f += 0.2500*noise( p ); 
-    //p = m*p*2.03;
-    //f += 0.1250*noise( p ); p = m*p*2.01;
-    //f += 0.0625*noise( p );
-    
-    f = f*factor;
-    
-    return vec4(f,f,f,f);
+	float f = noise( p );
+	f += 0.25 * noise( m*p );
+	//p = m*p*2.03;
+	//f += 0.1250*noise( p ); p = m*p*2.01;
+	//f += 0.0625*noise( p );
+
+	f *= factor;
+	return vec4(f);
 }
 
-vec3 planeIntersect(in vec3 startPos, in vec3 endPos, in vec3 planeNormal, in vec3 planeOrigin)
-{
-	vec3 dir = startPos-endPos;
-	float distance = dot(planeNormal, planeOrigin-startPos) / dot(planeNormal,dir);
-	return dir * distance + startPos;
-} 
-
-vec3 cullEndpoint(in vec3 startPos, in vec3 endPos){
-		vec3 cullPos = endPos;
-	
-		if(cullPos.x < 0.0){
-			cullPos =  planeIntersect(startPos, cullPos, vec3(1.,0.,0.), vec3(0.,0.,0.)); 
-		}
-		
-		if(cullPos.x > mapX){
-			cullPos =  planeIntersect(startPos, cullPos, vec3(1.,0.,0.), vec3(mapX,0.,0.)); 
-		}
-		
-		if(cullPos.z < 0.0){
-			cullPos = planeIntersect(startPos, cullPos, vec3(0.,0.,1.), vec3(0.,0.,0.)); 
-		}
-		
-		if(cullPos.z > mapZ){
-			cullPos = planeIntersect(startPos, cullPos, vec3(0.,0.,1.), vec3(0.,0.,mapZ)); 
-		}
-		
-		if(cullPos.y > fogHeight){
-			cullPos = planeIntersect(startPos, cullPos, vec3(0.,1.,0.), vec3(0.,fogHeight,0.)); 
-		}
-		
-		if(cullPos.y < fogBottom){
-			cullPos = planeIntersect(startPos, cullPos, vec3(0.,1.,0.), vec3(0.,fogBottom,0.)); 
-		}
-		
-		return cullPos;
-}
-
-vec3 cullStartPoint(in vec3 startPos, in vec3 endPos){
-	
-		if(startPos.y > fogHeight){		
-			startPos = planeIntersect(startPos, endPos, up, vec3(0.,fogHeight,0.));
-		}
-		
-		if(startPos.y < fogBottom){		
-			startPos = planeIntersect(startPos, endPos, up, vec3(0.,fogBottom,0.));
-		}
-
-		if(startPos.x < 0.0){
-			startPos = planeIntersect(startPos, endPos, vec3(1.,0.,0.), vec3(0.,0.,0.)); 
-		}
-		
-		if(startPos.x > mapX){
-			startPos = planeIntersect(startPos, endPos, vec3(1.,0.,0.), vec3(mapX,0.,0.)); 
-		}
-		
-		if(startPos.z < 0.0){
-			startPos = planeIntersect(startPos, endPos, vec3(0.,0.,1.), vec3(0.,0.,0.)); 
-		}
-		
-		if(startPos.z > mapZ){
-			startPos = planeIntersect(startPos, endPos, vec3(0.,0.,1.), vec3(0.,0.,mapZ)); 
-		}
-			
-		return startPos;
-}
 
 vec4 raymarchClouds( in vec3 start, in vec3 end)
 {
+	float numsteps = 20.0;
+	float tstep = 1./numsteps;
 	vec4 sum = vec4(0.);
-	
-	vec3 sectPos = cullStartPoint(start, end);
-	
-	float depth = clamp(sqrt(length(end-sectPos)/1000.0),0.0,1.0);
-	
-	vec3 rd = normalize(start-end);
+	float depth = clamp(sqrt(length(end - start)*0.001), 0.0, 1.0);
+	float alpha = opacity * depth;// * tstep;
 
-	for(int i=0; i<20; i++) // 64 steps maximum
+	for(float t=0.0; t<=1.0; t+=tstep)
 	{
-		if( sum.w>0.99 ) break; // short-circuit on full opacity or timeout?
-		float t = float(i)/20.0;
-		vec3 pos = mix(sectPos, end, t);
+		vec3 pos = mix(start, end, t);
 		vec4 col = mapClouds(pos);
 
-		vec3 lightPos = 10.0*sundir+pos;
-		float dif =  clamp((col.w - mapClouds(lightPos).w), 0.0, 1.0 )*3.0;
+		vec3 lightPos = sundir*10.0 + pos;
+		vec4 lightCol = mapClouds(lightPos);
+		float dif = clamp((col.w - lightCol.w), 0.0, 1.0 ) * 3.0;
 
-        vec3 lin = fogColor*1.35 + suncolor*dif;
-		col.xyz *= lin;
-		
-		col.a *= opacity;
-		col.rgb *= col.a;
+		vec3 lin = fogColor*1.35 + suncolor*dif;
+		col.rgb *= lin;
 
-		sum = col*(1.0 - sum.a)*depth + sum;	
+		sum += col * alpha * (1.0 - sum.a);
 	}
-	
-	sum.xyz /= (0.001+sum.w);
 
+	sum.rgb /= (0.001 + sum.w);
 	return clamp(sum, 0.0, 1.0); // returned value is opacity of cloud
 }
 
-void main(void)
+void main()
 {
 	float z = texture2D(tex0, gl_TexCoord[0].st).x;
 
@@ -185,15 +111,32 @@ void main(void)
 	vec4 worldPos4 = viewProjectionInv * ppos;
 	vec3 worldPos  = worldPos4.xyz / worldPos4.w;
 
-	worldPos = cullEndpoint(eyePos, worldPos);
-	vec4 res = raymarchClouds(eyePos,worldPos);
-	
-	vec3 rd = normalize(eyePos-worldPos);
-	float sun = clamp( dot(normalize(sundir),rd), 0.0, 1.0 );
-	vec3 col = fogColor - rd.y*0.2*suncolor + 0.15*0.5;
-	col += 0.2*suncolor*pow( sun, 8.0 );
+	Ray r;
+	r.Origin = eyePos;
+	r.Dir = worldPos - eyePos;
+	AABB box;
+	box.Min = vec3(0.,fogBottom,0.);
+	box.Max = vec3(mapX,fogHeight,mapZ);
+	float t1, t2;
+	if (!IntersectBox(r, box, t1, t2)) {
+		gl_FragColor = vec4(0.);
+		return;
+	}
+
+	t1 = clamp(t1, 0.0, 1.0);
+	t2 = clamp(t2, 0.0, 1.0);
+	vec3 startPos = r.Dir * t1 + r.Origin;
+	vec3 endPos   = r.Dir * t2 + r.Origin;
+
+	vec4 res = raymarchClouds(startPos, endPos);
+
+	vec3 rd = normalize(r.Dir);
+	float sun = clamp( dot(sundir,rd), 0.0, 1.0 );
+	vec3 col = fogColor - rd.y*0.2*suncolor + 0.075;
+	col += 0.2*suncolor * pow( sun, 8.0 );
 	col *= 0.95;
-	col = mix( col, res.xyz, res.w );
-	col += 0.1*suncolor*pow( sun, 3.0 );
-    gl_FragColor = vec4( col, res.w );
+	col  = mix( col, res.xyz, res.w );
+	col += 0.1*suncolor * pow( sun, 3.0 );
+	gl_FragColor = vec4( col, res.w );
+	gl_FragColor.rgb *= gl_FragColor.a;
 }
