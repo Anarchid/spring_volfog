@@ -5,7 +5,7 @@
 function widget:GetInfo()
   return {
     name      = "Volumetric Clouds",
-    version   = 3,
+    version   = 4,
     desc      = "Fog/Dust clouds that scroll with wind along the map's surface. Requires GLSL, expensive even with.",
     author    = "Anarchid",
     date      = "november 2014",
@@ -15,7 +15,8 @@ function widget:GetInfo()
   }
 end
 
-enabled = true;
+enabled = true
+
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -31,25 +32,39 @@ local CloudDefs = mapcfg.custom.clouds;
 
 local gnd_min, gnd_max = Spring.GetGroundExtremes()
 
-if (CloudDefs.height == "auto") then
-	CloudDefs.height = gnd_max
-elseif (CloudDefs.height:match("(%d+)%%")) then
-	local percent = CloudDefs.height:match("(%d+)%%")
-	CloudDefs.height = gnd_max * (percent / 100)
+local function convertAltitude(input, default)
+	if (input == nil or input == "auto") then 
+		return default
+	elseif (input:match("(%d+)%%")) then
+		local percent = input:match("(%d+)%%")
+		return gnd_max * (percent / 100)
+	end
+	return input
 end
 
+CloudDefs.height = convertAltitude(CloudDefs.height, gnd_max*0.9)
+CloudDefs.bottom = convertAltitude(CloudDefs.bottom, 0)
+CloudDefs.fade_alt = convertAltitude(fade_alt, gnd_max*0.8)
+
+
 local cloudsHeight    = CloudDefs.height
+local cloudsBottom    = CloudDefs.bottom or gnd_min
 local cloudsColor     = CloudDefs.color
 local cloudsScale     = CloudDefs.scale
 local speed    		  = CloudDefs.speed
+local opacity    	  = CloudDefs.opacity or 0.3
+local fade_alt    	  = CloudDefs.fade_alt
 local fr,fg,fb        = unpack(cloudsColor)
 local sunDir = {0,0,0}
 local sunCol = {1,0,0}
 
 assert(type(cloudsHeight) == "number")
+assert(type(cloudsBottom) == "number")
 assert(type(fr) == "number")
 assert(type(fg) == "number")
 assert(type(fb) == "number")
+assert(type(opacity) == "number")
+assert(type(fade_alt) == "number")
 assert(type(cloudsScale) == "number")
 assert(type(speed) == "number")
 
@@ -158,35 +173,6 @@ local offsetZ = 0;
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-----a simple plane, very complete, would look good with shadows, reflex and stuff.
-
-local function DrawPlaneModel()
-  local layers = (cloudsHeight - (gnd_min+50)) / 50
-
-  glColor(fr,fg,fb,50*cloudsScale)
-  glDepthTest(true)
-  glBlending(true)
-
-  glBeginEnd(GL_QUADS,function()
-    for h = gnd_min+50,cloudsHeight,50 do
-      local l = -mx*4
-      local r = mx + mx*4
-      local t = -mz*4
-      local b = mz + mz*4
-      glVertex(l, h, t)
-      glVertex(r, h, t)
-      glVertex(r, h, b)
-      glVertex(l, h, b)
-    end
-  end)
-
-  glDepthTest(false)
-  glBlending(false)
-  glColor(1,1,1,1)
-end
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
 
 function widget:ViewResize()
 	vsx, vsy = gl.GetViewSizes()
@@ -243,7 +229,7 @@ local vertSrc = [[
 
 local fragSrc = VFS.LoadFile("LuaUI/Widgets/Shaders/fog_frag.glsl"); 
 
-fragSrc = fragSrc:format(cloudsScale, cloudsHeight, cloudsColor[1], cloudsColor[2], cloudsColor[3], mx, mz, gnd_min);
+fragSrc = fragSrc:format(cloudsScale, cloudsHeight, cloudsBottom, cloudsColor[1], cloudsColor[2], cloudsColor[3], mx, mz, fade_alt, opacity);
 
 if (post83) then
   fragSrc = '#define USE_INVERSEMATRIX\n' .. fragSrc
@@ -315,10 +301,12 @@ end
 --------------------------------------------------------------------------------
 
 function widget:Initialize()
+	--[[
 	spEcho('Height: '..cloudsHeight);
 	spEcho('Color: '..fr..','..fg..','..fb);
 	spEcho('Scale: '..cloudsScale);
 	spEcho('Enabled: '..tostring(enabled));
+	]]
 	if (enabled) then
 		if ((not forceNonGLSL) and Spring.GetMiniMapDualScreen()~='left') then --FIXME dualscreen
 			if (not glCreateShader) then
@@ -426,7 +414,7 @@ end
 function widget:GameFrame()
 	local dx,dy,dz = spGetWind();
 	offsetX = offsetX-dx*speed;
-	offsetY = offsetY-0.25-dy*0.25;
+	offsetY = offsetY-0.25-dy*0.25*speed;
 	offsetZ = offsetZ-dz*speed;
 	
 	local sunx, suny, sunz = gl.GetSun('pos');

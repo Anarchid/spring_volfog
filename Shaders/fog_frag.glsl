@@ -1,9 +1,11 @@
 const float noiseScale = float(%f);
 const float fogHeight = float(%f);
+const float fogBottom = float(%f);
 const vec3 fogColor   = vec3(%f, %f, %f);
 const float mapX = float(%f);
 const float mapZ = float(%f);
-const float fogMinHeight = float(%f);
+const float fadeAltitude = float(%f);
+const float opacity = float(%f);
 const float k = 100.0;
 const vec3 up = vec3(0.0,1.0,0.0);
 const vec4 nullVector = vec4(0.0,0.0,0.0,0.0);
@@ -42,7 +44,7 @@ float inPrism(in vec3 pos){
 	return 
 	float(
 		pos.y < fogHeight &&
-		pos.y > fogMinHeight &&
+		pos.y > fogBottom &&
 		pos.z < mapZ-1.0 &&
 		pos.x < mapX-1.0 &&
 		pos.x > 1.0 &&
@@ -54,7 +56,7 @@ vec4 mapClouds( in vec3 p)
 {
     float f;
     
-    float factor = 1.0-smoothstep(fogHeight-20.0,fogHeight,p.y);
+    float factor = 1.0-smoothstep(fadeAltitude,fogHeight,p.y);
     factor = mix(0.0,factor,inPrism(p));
     
     p += offset;
@@ -102,6 +104,10 @@ vec3 cullEndpoint(in vec3 startPos, in vec3 endPos){
 			cullPos = planeIntersect(startPos, cullPos, vec3(0.,1.,0.), vec3(0.,fogHeight,0.)); 
 		}
 		
+		if(cullPos.y < fogBottom){
+			cullPos = planeIntersect(startPos, cullPos, vec3(0.,1.,0.), vec3(0.,fogBottom,0.)); 
+		}
+		
 		return cullPos;
 }
 
@@ -109,6 +115,10 @@ vec3 cullStartPoint(in vec3 startPos, in vec3 endPos){
 	
 		if(startPos.y > fogHeight){		
 			startPos = planeIntersect(startPos, endPos, up, vec3(0.,fogHeight,0.));
+		}
+		
+		if(startPos.y < fogBottom){		
+			startPos = planeIntersect(startPos, endPos, up, vec3(0.,fogBottom,0.));
 		}
 
 		if(startPos.x < 0.0){
@@ -153,7 +163,7 @@ vec4 raymarchClouds( in vec3 start, in vec3 end)
         vec3 lin = fogColor*1.35 + suncolor*dif;
 		col.xyz *= lin;
 		
-		col.a *= 0.3;
+		col.a *= opacity;
 		col.rgb *= col.a;
 
 		sum = col*(1.0 - sum.a)*depth + sum;	
