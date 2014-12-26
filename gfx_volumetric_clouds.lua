@@ -46,8 +46,7 @@ end
 
 CloudDefs.height = convertAltitude(CloudDefs.height, gnd_max*0.9)
 CloudDefs.bottom = convertAltitude(CloudDefs.bottom, 0)
-CloudDefs.fade_alt = convertAltitude(fade_alt, gnd_max*0.8)
-
+CloudDefs.fade_alt = convertAltitude(CloudDefs.fade_alt, gnd_max*0.8)
 
 local cloudsHeight    = CloudDefs.height
 local cloudsBottom    = CloudDefs.bottom or gnd_min
