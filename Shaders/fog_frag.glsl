@@ -101,17 +101,26 @@ vec4 raymarchClouds( in vec3 start, in vec3 end)
 	return clamp(sum, 0.0, 1.0); // returned value is opacity of cloud
 }
 
+{
+
+vec3 GetWorldPos(in vec2 screenpos)
+{
+	float z = texture2D(tex0, screenpos).x;
+	vec4 ppos;
+	ppos.xyz = vec3(screenpos, z) * 2. - 1.;
+	ppos.a   = 1.;
+	vec4 worldPos4 = viewProjectionInv * ppos;
+	worldPos4.xyz /= worldPos4.w;
+	return worldPos4.xyz;
+}
+
+
 void main()
 {
-	float z = texture2D(tex0, gl_TexCoord[0].st).x;
+	// reconstruct worldpos from depthbuffer
+	vec3 worldPos = GetWorldPos(gl_TexCoord[0].st);
 
-	vec4 ppos;
-	ppos.xyz = vec3(gl_TexCoord[0].st, z) * 2. - 1.;
-	ppos.a   = 1.;
-
-	vec4 worldPos4 = viewProjectionInv * ppos;
-	vec3 worldPos  = worldPos4.xyz / worldPos4.w;
-
+	// clamp ray in boundary box
 	Ray r;
 	r.Origin = eyePos;
 	r.Dir = worldPos - eyePos;
@@ -123,7 +132,6 @@ void main()
 		gl_FragColor = vec4(0.);
 		return;
 	}
-
 	t1 = clamp(t1, 0.0, 1.0);
 	t2 = clamp(t2, 0.0, 1.0);
 	vec3 startPos = r.Dir * t1 + r.Origin;
