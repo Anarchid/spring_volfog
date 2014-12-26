@@ -35,7 +35,9 @@ local gnd_min, gnd_max = Spring.GetGroundExtremes()
 local function convertAltitude(input, default)
 	if (input == nil or input == "auto") then 
 		return default
-	elseif (input:match("(%d+)%%")) then
+	elseif type(input) == "number" then
+		return input
+	elseif (type(input) == "string" and input:match("(%d+)%%")) then
 		local percent = input:match("(%d+)%%")
 		return gnd_max * (percent / 100)
 	end
