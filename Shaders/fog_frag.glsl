@@ -41,7 +41,7 @@ struct AABB {
 	vec3 Max;
 };
 
-bool IntersectBox(Ray r, AABB aabb, out float t0, out float t1)
+bool IntersectBox(in Ray r, in AABB aabb, out float t0, out float t1)
 {
 	vec3 invR = 1.0 / r.Dir;
 	vec3 tbot = invR * (aabb.Min - r.Origin);
@@ -52,7 +52,8 @@ bool IntersectBox(Ray r, AABB aabb, out float t0, out float t1)
 	t0 = max(t.x, t.y);
 	t  = min(tmax.xx, tmax.yz);
 	t1 = min(t.x, t.y);
-	return t0 <= t1;
+	//return (t0 <= t1) && (t1 >= 0.);
+	return (abs(t0) <= t1);
 }
 
 
