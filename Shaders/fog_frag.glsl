@@ -116,7 +116,7 @@ void main()
 	r.Dir = worldPos - eyePos;
 	AABB box;
 	box.Min = vec3(1.,fogBottom,1.);
-	box.Max = vec3(mapX-1,fogHeight,mapZ-1);
+	box.Max = vec3(mapX-1.,fogHeight,mapZ-1.);
 	float t1, t2;
 	if (!IntersectBox(r, box, t1, t2)) {
 		gl_FragColor = vec4(0.);
