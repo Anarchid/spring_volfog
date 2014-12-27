@@ -1,12 +1,15 @@
 const float noiseScale = 1. / float(%f);
 const float fogHeight = float(%f);
 const float fogBottom = float(%f);
+const float fogThicknessInv = 1. / (fogHeight - fogBottom);
 const vec3 fogColor   = vec3(%f, %f, %f);
 const float mapX = float(%f);
 const float mapZ = float(%f);
 const float fadeAltitude = float(%f);
 const float opacity = float(%f);
 
+const float sunPenetrationDepth = float(80.0); //FIXME make configurable
+const float sunDiffuseStrength = float(6.0);
 uniform sampler2D tex0;
 uniform sampler2D tex1;
 
@@ -15,8 +18,12 @@ uniform mat4 viewProjectionInv;
 uniform vec3 offset;
 uniform vec3 sundir;
 uniform vec3 suncolor;
+uniform float time;
 
-float noise( in vec3 x )
+/*const*/ float sunSpecularColor = suncolor; //FIXME
+const float sunSpecularExponent = float(100.0);
+
+float noise(in vec3 x)
 {
 	vec3 p = floor(x);
 	vec3 f = fract(x);
@@ -25,10 +32,6 @@ float noise( in vec3 x )
 	vec2 rg = texture2D( tex1, (uv + 0.5)/256.0).yx;
 	return mix( rg.x, rg.y, f.z );
 }
-
-const mat3 m = mat3( 0.00,  0.80,  0.60,
-                    -0.80,  0.36, -0.48,
-                    -0.60, -0.48,  0.64 ) * 2.02;
 
 
 struct Ray {
@@ -57,51 +60,67 @@ bool IntersectBox(in Ray r, in AABB aabb, out float t0, out float t1)
 }
 
 
-vec4 mapClouds( in vec3 p)
+const mat3 m = mat3( 0.00,  0.80,  0.60,
+                    -0.80,  0.36, -0.48,
+                    -0.60, -0.48,  0.64 ) * 2.02;
+
+float MapClouds(in vec3 p)
 {
-	float factor = 1.0 - smoothstep(fadeAltitude,fogHeight,p.y);
 	p += offset;
 	p *= noiseScale;
+	p += time * 0.07;
 
 	float f = noise( p );
-	f += 0.25 * noise( m*p );
-	//p = m*p*2.03;
-	//f += 0.1250*noise( p ); p = m*p*2.01;
-	//f += 0.0625*noise( p );
+	p = m*p - time * 0.3;
+	f += 0.25 * noise( p );
+	p = m*p - time * 0.07;
+	f += 0.1250 * noise( p );
+	p = m*p + time * 0.8;
+	f += 0.0625 * noise( p );
 
-	f *= factor;
-	return vec4(f);
+	return f;
 }
 
 
-vec4 raymarchClouds( in vec3 start, in vec3 end)
+vec4 RaymarchClouds(in vec3 start, in vec3 end)
 {
-	float numsteps = 20.0;
-	float tstep = 1./numsteps;
-	vec4 sum = vec4(0.);
-	float depth = clamp(sqrt(length(end - start)*0.001), 0.0, 1.0);
-	float alpha = opacity * depth;// * tstep;
+	float l = length(end - start);
+	const float numsteps = 20.0;
+	const float tstep = 1. / numsteps;
+	float depth = min(l * fogThicknessInv, 1.5);
 
-	for(float t=0.0; t<=1.0; t+=tstep)
-	{
-		vec3 pos = mix(start, end, t);
-		vec4 col = mapClouds(pos);
+	float fogContrib = 0.;
+	float sunContrib = 0.;
+	float alpha = 0.;
 
-		vec3 lightPos = sundir*10.0 + pos;
-		vec4 lightCol = mapClouds(lightPos);
-		float dif = clamp((col.w - lightCol.w), 0.0, 1.0 ) * 3.0;
+	for (float t=0.0; t<=1.0; t+=tstep) {
+		vec3  pos = mix(start, end, t);
+		float fog = MapClouds(pos);
+		fogContrib += fog;
 
-		vec3 lin = fogColor*1.35 + suncolor*dif;
-		col.rgb *= lin;
+		vec3  lightPos = sundir * sunPenetrationDepth + pos;
+		float lightFog = MapClouds(lightPos);
+		float sunVisibility = clamp((fog - lightFog), 0.0, 1.0 ) * sunDiffuseStrength;
+		sunContrib += sunVisibility;
 
-		sum += col * alpha * (1.0 - sum.a);
+		float b = smoothstep(1.0, 0.7, abs((t - 0.5) * 2.0));
+		alpha += b;
 	}
 
-	sum.rgb /= (0.001 + sum.w);
-	return clamp(sum, 0.0, 1.0); // returned value is opacity of cloud
+	fogContrib *= tstep;
+	sunContrib *= tstep;
+	alpha      *= tstep * opacity * depth;
+
+	vec3 ndir = (end - start) / l;
+	float sun = pow( clamp( dot(sundir, ndir), 0.0, 1.0 ), sunSpecularExponent );
+	sunContrib += sun * clamp(1. - fogContrib * alpha, 0.2, 1.) * 1.0;
+
+	vec4 col;
+	col.rgb = (fogColor + sunContrib) * suncolor;
+	col.a   = fogContrib * alpha;
+	return col;
 }
 
-{
 
 vec3 GetWorldPos(in vec2 screenpos)
 {
@@ -137,15 +156,6 @@ void main()
 	vec3 startPos = r.Dir * t1 + r.Origin;
 	vec3 endPos   = r.Dir * t2 + r.Origin;
 
-	vec4 res = raymarchClouds(startPos, endPos);
-
-	vec3 rd = normalize(r.Dir);
-	float sun = clamp( dot(sundir,rd), 0.0, 1.0 );
-	vec3 col = fogColor - rd.y*0.2*suncolor + 0.075;
-	col += 0.2*suncolor * pow( sun, 8.0 );
-	col *= 0.95;
-	col  = mix( col, res.xyz, res.w );
-	col += 0.1*suncolor * pow( sun, 3.0 );
-	gl_FragColor = vec4( col, res.w );
-	gl_FragColor.rgb *= gl_FragColor.a;
+	// finally raymarch the volume
+	gl_FragColor = RaymarchClouds(startPos, endPos);
 }
