@@ -332,7 +332,7 @@ widget:GameFrame()
 
 
 function widget:DrawScreenEffects()
-	--glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) -- in theory not needed but sometimes evil widgets disable it w/o reenabling it
 	glTexture(fogTexture);
 	gl.TexRect(0,0,vsx,vsy,0,0,1,1);
 	glTexture(false);
