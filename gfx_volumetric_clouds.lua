@@ -216,7 +216,7 @@ local vertSrc = [[
   }
 ]]
 
-local fragSrc = VFS.LoadFile("LuaUI/spring_volfog/Shaders/fog_frag.glsl");
+local fragSrc = VFS.LoadFile("LuaUI/Widgets/Shaders/fog_frag.glsl");
 
 fragSrc = fragSrc:format(cloudsScale, cloudsHeight, cloudsBottom, cloudsColor[1], cloudsColor[2], cloudsColor[3], Game.mapSizeX, Game.mapSizeZ, fade_alt, opacity);
 
@@ -273,7 +273,7 @@ function widget:Shutdown()
 	if (glDeleteShader) then
 		glDeleteShader(depthShader)
 	end
-	glDeleteTexture(":l:LuaUI/spring_volfog/Images/rgbnoise.png");
+	glDeleteTexture(":l:LuaUI/Widgets/Images/rgbnoise.png");
 end
 
 
@@ -281,7 +281,7 @@ local function renderToTextureFunc()
 	-- render a full screen quad
 	glTexture(0, depthTexture)
 	glTexture(0, false)
-	glTexture(1,":l:LuaUI/spring_volfog/Images/rgbnoise.png");
+	glTexture(1,":l:LuaUI/Widgets/Images/rgbnoise.png");
 	glTexture(1, false)
 
 	gl.TexRect(-1, -1, 1, 1, 0, 0, 1, 1)
