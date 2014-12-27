@@ -10,6 +10,8 @@ const float opacity = float(%f);
 
 const float sunPenetrationDepth = float(80.0); //FIXME make configurable
 const float sunDiffuseStrength = float(6.0);
+const float noiseTexSizeInv = 1.0 / 256.0;
+const float noiseCloudness = float(0.4) * 0.5;
 uniform sampler2D tex0;
 uniform sampler2D tex1;
 
@@ -28,9 +30,9 @@ float noise(in vec3 x)
 	vec3 p = floor(x);
 	vec3 f = fract(x);
 	f = f*f*(3.0-2.0*f);
-	vec2 uv = (p.xy + vec2(37.0,17.0)*p.z) + f.xy;
-	vec2 rg = texture2D( tex1, (uv + 0.5)/256.0).yx;
-	return mix( rg.x, rg.y, f.z );
+	vec2 uv = (p.xz + vec2(37.0,17.0)*p.y) + f.xz;
+	vec2 rg = texture2D( tex1, (uv + 0.5) * noiseTexSizeInv).yx;
+	return smoothstep(0.5 - noiseCloudness, 0.5 + noiseCloudness, mix( rg.x, rg.y, f.y ));
 }
 
 
