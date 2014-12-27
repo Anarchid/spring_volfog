@@ -12,6 +12,15 @@ const float sunPenetrationDepth = float(80.0); //FIXME make configurable
 const float sunDiffuseStrength = float(6.0);
 const float noiseTexSizeInv = 1.0 / 256.0;
 const float noiseCloudness = float(0.4) * 0.5;
+
+#ifdef CLAMP_TO_MAP
+	const vec3 vAA = vec3(  0.,fogBottom,  0.);
+	const vec3 vBB = vec3(mapX,fogHeight,mapZ);
+#else
+	const vec3 vAA = vec3(-300000.0, fogBottom, -300000.0);
+	const vec3 vBB = vec3( 300000.0, fogHeight,  300000.0);
+#endif
+
 uniform sampler2D tex0;
 uniform sampler2D tex1;
 
@@ -132,6 +141,13 @@ vec3 GetWorldPos(in vec2 screenpos)
 	ppos.a   = 1.;
 	vec4 worldPos4 = viewProjectionInv * ppos;
 	worldPos4.xyz /= worldPos4.w;
+
+	if (z == 1.0) {
+		vec3 forward = normalize(worldPos4.xyz - eyePos);
+		float a = max(fogHeight - eyePos.y, eyePos.y - fogBottom) / forward.y;
+		return eyePos + forward.xyz * abs(a);
+	}
+
 	return worldPos4.xyz;
 }
 
@@ -146,8 +162,8 @@ void main()
 	r.Origin = eyePos;
 	r.Dir = worldPos - eyePos;
 	AABB box;
-	box.Min = vec3(0.,fogBottom,0.);
-	box.Max = vec3(mapX,fogHeight,mapZ);
+	box.Min = vAA;
+	box.Max = vBB;
 	float t1, t2;
 	if (!IntersectBox(r, box, t1, t2)) {
 		gl_FragColor = vec4(0.);
@@ -160,4 +176,7 @@ void main()
 
 	// finally raymarch the volume
 	gl_FragColor = RaymarchClouds(startPos, endPos);
+
+	// blend with distance
+	gl_FragColor.a *= smoothstep(gl_Fog.end * 10.0, gl_Fog.start, length(worldPos - eyePos));
 }
