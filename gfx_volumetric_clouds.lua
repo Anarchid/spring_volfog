@@ -326,7 +326,7 @@ function widget:GameFrame()
 	offsetZ = offsetZ-dz*speed;
 
 	sunDir = {gl.GetSun('pos')}
-	sunCol = {gl.GetSun('diffuse')}
+	sunCol = {gl.GetSun('specular')}
 end
 
 widget:GameFrame()

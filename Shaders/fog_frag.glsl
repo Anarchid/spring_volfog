@@ -8,10 +8,12 @@ const float mapZ = float(%f);
 const float fadeAltitude = float(%f);
 const float opacity = float(%f);
 
-const float sunPenetrationDepth = float(80.0); //FIXME make configurable
+const float sunPenetrationDepth = float(-40.0); //FIXME make configurable
 const float sunDiffuseStrength = float(6.0);
 const float noiseTexSizeInv = 1.0 / 256.0;
 const float noiseCloudness = float(0.4) * 0.5;
+
+#define CLAMP_TO_MAP true
 
 #ifdef CLAMP_TO_MAP
 	const vec3 vAA = vec3(  1.,fogBottom,  1.);
@@ -77,6 +79,8 @@ const mat3 m = mat3( 0.00,  0.80,  0.60,
 
 float MapClouds(in vec3 p)
 {
+	float factor = 1.0-smoothstep(fadeAltitude,fogHeight,p.y);
+
 	p += offset;
 	p *= noiseScale;
 	p += time * 0.07;
@@ -88,6 +92,8 @@ float MapClouds(in vec3 p)
 	f += 0.1250 * noise( p );
 	p = m*p + time * 0.8;
 	f += 0.0625 * noise( p );
+
+    f = mix(0.0,f,factor);
 
 	return f;
 }
@@ -127,7 +133,7 @@ vec4 RaymarchClouds(in vec3 start, in vec3 end)
 	sunContrib += sun * clamp(1. - fogContrib * alpha, 0.2, 1.) * 1.0;
 
 	vec4 col;
-	col.rgb = (fogColor + sunContrib) * suncolor;
+	col.rgb = sunContrib * suncolor + fogColor;
 	col.a   = fogContrib * alpha;
 	return col;
 }
@@ -165,6 +171,8 @@ void main()
 	box.Min = vAA;
 	box.Max = vBB;
 	float t1, t2;
+	
+	// TODO: find a way to do this when eye is inside volume
 	if (!IntersectBox(r, box, t1, t2)) {
 		gl_FragColor = vec4(0.);
 		return;
