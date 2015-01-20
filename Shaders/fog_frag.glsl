@@ -8,16 +8,14 @@ const float mapZ = float(%f);
 const float fadeAltitude = float(%f);
 const float opacity = float(%f);
 
-const float sunPenetrationDepth = float(-40.0); //FIXME make configurable
+const float sunPenetrationDepth = float(%f); 
 const float sunDiffuseStrength = float(6.0);
 const float noiseTexSizeInv = 1.0 / 256.0;
-const float noiseCloudness = float(0.4) * 0.5;
-
-#define CLAMP_TO_MAP true
+const float noiseCloudness = float(0.7) * 0.5; // TODO: configurable
 
 #ifdef CLAMP_TO_MAP
 	const vec3 vAA = vec3(  1.,fogBottom,  1.);
-	const vec3 vBB = vec3(mapX-1,fogHeight,mapZ-1);
+	const vec3 vBB = vec3(mapX-1.,fogHeight,mapZ-1.);
 #else
 	const vec3 vAA = vec3(-300000.0, fogBottom, -300000.0);
 	const vec3 vBB = vec3( 300000.0, fogHeight,  300000.0);
@@ -65,7 +63,7 @@ bool IntersectBox(in Ray r, in AABB aabb, out float t0, out float t1)
 	vec3 tmin = min(ttop, tbot);
 	vec3 tmax = max(ttop, tbot);
 	vec2 t = max(tmin.xx, tmin.yz);
-	t0 = max(t.x, t.y);
+	t0 = max(0.,max(t.x, t.y));
 	t  = min(tmax.xx, tmax.yz);
 	t1 = min(t.x, t.y);
 	//return (t0 <= t1) && (t1 >= 0.);
@@ -185,6 +183,8 @@ void main()
 	// finally raymarch the volume
 	gl_FragColor = RaymarchClouds(startPos, endPos);
 
-	// blend with distance
+#ifndef CLAMP_TO_MAP
+	// blend with distance to make endless fog have smooth horizon
 	gl_FragColor.a *= smoothstep(gl_Fog.end * 10.0, gl_Fog.start, length(worldPos - eyePos));
+#endif
 }

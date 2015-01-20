@@ -52,13 +52,17 @@ local cloudsHeight    = CloudDefs.height
 local cloudsBottom    = CloudDefs.bottom or gnd_min
 local cloudsColor     = CloudDefs.color
 local cloudsScale     = CloudDefs.scale
+local cloudsClamp     = CloudDefs.clamp_to_map or false
 local speed    		  = CloudDefs.speed
 local opacity    	  = CloudDefs.opacity or 0.3
+local sunPenetration  = CloudDefs.sun_penetration or (-40.0)
 local fade_alt    	  = CloudDefs.fade_alt
 local fr,fg,fb        = unpack(cloudsColor)
 local sunDir = {0,0,0}
 local sunCol = {1,0,0}
 
+assert(type(sunPenetration) == "number")
+assert(type(cloudsClamp) == "boolean")
 assert(type(cloudsHeight) == "number")
 assert(type(cloudsBottom) == "number")
 assert(type(fr) == "number")
@@ -219,7 +223,16 @@ local vertSrc = [[
 
 local fragSrc = VFS.LoadFile("LuaUI/Widgets/Shaders/fog_frag.glsl");
 
-fragSrc = fragSrc:format(cloudsScale, cloudsHeight, cloudsBottom, cloudsColor[1], cloudsColor[2], cloudsColor[3], Game.mapSizeX, Game.mapSizeZ, fade_alt, opacity);
+fragSrc = fragSrc:format(
+  cloudsScale, cloudsHeight, cloudsBottom, 
+  cloudsColor[1], cloudsColor[2], cloudsColor[3], 
+  Game.mapSizeX, Game.mapSizeZ, 
+  fade_alt, opacity, sunPenetration
+);
+
+if(cloudsClamp) then
+  fragSrc = '#define CLAMP_TO_MAP\n' .. fragSrc
+end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
